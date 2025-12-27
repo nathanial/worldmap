@@ -7,6 +7,7 @@ import Std.Data.HashMap
 import Std.Data.HashSet
 import Worldmap.TileCoord
 import Worldmap.RetryLogic
+import Worldmap.Utils
 import Afferent.FFI.Texture
 
 namespace Worldmap
@@ -39,7 +40,7 @@ def defaultRetryConfig : RetryConfig :=
 /-- Configuration for tile unloading behavior -/
 structure UnloadConfig where
   bufferTiles : Int := 3      -- Extra tiles beyond visible area to keep GPU textures loaded
-  maxCachedImages : Nat := 1500  -- Max images to keep in RAM (includes parent tiles for fallback)
+  maxCachedImages : Nat := defaultMaxCachedImages  -- Max images to keep in RAM
   deriving Repr, Inhabited
 
 def defaultUnloadConfig : UnloadConfig := {}

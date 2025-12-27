@@ -29,7 +29,7 @@ def MapDemoState.create (screenWidth screenHeight : Float) : IO MapDemoState := 
   let diskConfig : Worldmap.TileDiskCacheConfig := {
     cacheDir := "./tile_cache"
     tilesetName := "carto-dark-2x"
-    maxSizeBytes := 100 * 1024 * 1024  -- 100MB disk cache
+    maxSizeBytes := Worldmap.defaultDiskCacheSizeBytes
   }
 
   -- Initialize map state centered on San Francisco

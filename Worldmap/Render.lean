@@ -8,6 +8,7 @@ import Worldmap.Input
 import Worldmap.RetryLogic
 import Worldmap.Zoom
 import Worldmap.TileDiskCache
+import Worldmap.TileProvider
 import Wisp
 import Afferent.FFI.Texture
 import Afferent.FFI.Renderer
@@ -17,6 +18,7 @@ namespace Worldmap
 open Worldmap (fileExists readFile writeFile deleteFile nowMs)
 open Worldmap (selectEvictions addEntry removeEntries touchEntry)
 open Worldmap (TileDiskCacheConfig TileDiskCacheIndex TileDiskCacheEntry tilePath)
+open Worldmap (TileProvider)
 open Afferent.FFI (Texture Renderer)
 open Worldmap.RetryLogic
 open Worldmap.Zoom (centerForAnchor)
@@ -33,51 +35,53 @@ def httpGetBinary (url : String) : IO (Except String ByteArray) := do
       pure (.error s!"HTTP error: {response.status}")
   | .error e => pure (.error (toString e))
 
-/-- Lerp factor for zoom animation (per frame at 60fps) -/
-def zoomLerpFactor : Float := 0.15
-
-/-- Threshold for snapping to target zoom -/
-def zoomSnapThreshold : Float := 0.01
-
 /-- Update zoom animation state.
-    Lerps displayZoom toward targetZoom, keeping the anchor point fixed on screen. -/
+    Lerps displayZoom toward targetZoom, keeping the anchor point fixed on screen.
+    Uses the zoom animation config from state. -/
 def updateZoomAnimation (state : MapState) : MapState :=
   if !state.isAnimatingZoom then state
   else
+    let config := state.zoomAnimationConfig
     let target := intToFloat state.targetZoom
     let diff := target - state.displayZoom
-    if Float.abs diff < zoomSnapThreshold then
+    if Float.abs diff < config.snapThreshold then
       -- Snap to target and stop animation
       let (newLat, newLon) := centerForAnchor
           state.zoomAnchorLat state.zoomAnchorLon
           state.zoomAnchorScreenX state.zoomAnchorScreenY
           state.viewport.screenWidth state.viewport.screenHeight
           state.viewport.tileSize target
+      -- Clamp to bounds
+      let clampedLat := state.mapBounds.clampLat (clampLatitude newLat)
+      let clampedLon := state.mapBounds.clampLon newLon
       { state with
           displayZoom := target
           isAnimatingZoom := false
           viewport := { state.viewport with
-            centerLat := clampLatitude newLat
-            centerLon := wrapLongitude newLon
+            centerLat := clampedLat
+            centerLon := clampedLon
             zoom := state.targetZoom
           }
       }
     else
-      -- Lerp toward target
-      let newDisplayZoom := state.displayZoom + diff * zoomLerpFactor
+      -- Lerp toward target with configured factor
+      let newDisplayZoom := state.displayZoom + diff * config.lerpFactor
       -- Recompute center to keep anchor fixed
       let (newLat, newLon) := centerForAnchor
           state.zoomAnchorLat state.zoomAnchorLon
           state.zoomAnchorScreenX state.zoomAnchorScreenY
           state.viewport.screenWidth state.viewport.screenHeight
           state.viewport.tileSize newDisplayZoom
+      -- Clamp to bounds
+      let clampedLat := state.mapBounds.clampLat (clampLatitude newLat)
+      let clampedLon := state.mapBounds.clampLon newLon
       -- Update viewport.zoom to floor of displayZoom for tile fetching
-      let tileZoom := clampZoom (natToInt newDisplayZoom.floor.toUInt64.toNat)
+      let tileZoom := state.mapBounds.clampZoom (clampZoom (natToInt newDisplayZoom.floor.toUInt64.toNat))
       { state with
           displayZoom := newDisplayZoom
           viewport := { state.viewport with
-            centerLat := clampLatitude newLat
-            centerLon := wrapLongitude newLon
+            centerLat := clampedLat
+            centerLon := clampedLon
             zoom := tileZoom
           }
       }
@@ -86,12 +90,14 @@ def updateZoomAnimation (state : MapState) : MapState :=
 def spawnFetchTask (coord : TileCoord) (queue : IO.Ref (Array FetchResult))
     (diskConfig : TileDiskCacheConfig) (diskIndex : IO.Ref TileDiskCacheIndex)
     (cancelFlag : IO.Ref Bool)
+    (provider : TileProvider := TileProvider.default)
     (wasRetry : Bool := false) : IO Unit := do
   let _ ← IO.asTask do
     -- Check cancellation before starting
     if ← cancelFlag.get then return
 
     let cachePath := tilePath diskConfig coord
+    let url := provider.tileUrl coord
 
     -- Try disk cache first, then fall back to network
     let pngData ← if ← fileExists cachePath then
@@ -105,11 +111,11 @@ def spawnFetchTask (coord : TileCoord) (queue : IO.Ref (Array FetchResult))
       | .error _ =>
         -- Disk read failed, check cancellation before network fallback
         if ← cancelFlag.get then pure (Except.error "Cancelled")
-        else httpGetBinary (tileUrl coord)
+        else httpGetBinary url
     else
       -- Disk cache miss, check cancellation before network fetch
       if ← cancelFlag.get then pure (Except.error "Cancelled")
-      else httpGetBinary (tileUrl coord)
+      else httpGetBinary url
 
     -- Check cancellation before writing to cache
     if ← cancelFlag.get then return
@@ -238,7 +244,7 @@ def scheduleRetries (state : MapState) : IO MapState := do
         cache := cache.insert coord (.retrying rs)
         let cancelFlag ← IO.mkRef false
         state.activeTasks.modify fun m => m.insert coord cancelFlag
-        spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag (wasRetry := true)
+        spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider (wasRetry := true)
     | _ => pure ()
 
   pure { state with cache := cache }
@@ -373,7 +379,7 @@ def updateTileCache (state : MapState) : IO MapState := do
         cache := cache.insert parentCoord .pending
         let cancelFlag ← IO.mkRef false
         state.activeTasks.modify fun m => m.insert parentCoord cancelFlag
-        spawnFetchTask parentCoord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag
+        spawnFetchTask parentCoord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
 
   -- Then fetch visible tiles (sorted by distance from center)
   for coord in sortedVisible do
@@ -381,7 +387,7 @@ def updateTileCache (state : MapState) : IO MapState := do
       cache := cache.insert coord .pending
       let cancelFlag ← IO.mkRef false
       state.activeTasks.modify fun m => m.insert coord cancelFlag
-      spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag
+      spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
 
   -- Increment frame counter (abstract time advances)
   pure { state with cache := cache, frameCount := state.frameCount + 1 }

@@ -16,7 +16,7 @@ open Worldmap.Zoom (screenToGeo)
 def isLeftButtonDown (buttons : UInt8) : Bool :=
   (buttons &&& 1) != 0
 
-/-- Handle mouse input for panning -/
+/-- Handle mouse input for panning (respects map bounds) -/
 def handlePanInput (window : Window) (state : MapState) : IO MapState := do
   let (mouseX, mouseY) ← Window.getMousePos window
   let buttons ← Window.getMouseButtons window
@@ -28,8 +28,9 @@ def handlePanInput (window : Window) (state : MapState) : IO MapState := do
       let dx := state.dragStartX - mouseX
       let dy := state.dragStartY - mouseY
       let (dLon, dLat) := state.viewport.pixelsToDegrees dx dy
-      let newLat := clampLatitude (state.dragStartLat - dLat)
-      let newLon := wrapLongitude (state.dragStartLon + dLon)
+      -- Apply global and bounds constraints
+      let newLat := state.mapBounds.clampLat (clampLatitude (state.dragStartLat - dLat))
+      let newLon := state.mapBounds.clampLon (state.dragStartLon + dLon)
       pure { state with
         viewport := { state.viewport with centerLat := newLat, centerLon := newLon }
       }
@@ -49,7 +50,8 @@ def handleZoomInput (window : Window) (state : MapState) : IO MapState := do
     let (mouseX, mouseY) ← Window.getMousePos window
     let delta := if wheelY > 0.0 then 1 else -1
     -- Accumulate: add delta to current target (not viewport.zoom)
-    let newTarget := clampZoom (state.targetZoom + delta)
+    -- Respect both global zoom limits and map bounds
+    let newTarget := state.mapBounds.clampZoom (clampZoom (state.targetZoom + delta))
 
     if state.isAnimatingZoom then
       -- Already animating: just update target, keep existing anchor

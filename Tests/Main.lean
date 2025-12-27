@@ -3,9 +3,11 @@
   Main entry point for running all tests.
 -/
 import Tests.TileCoord
+import Tests.TileProvider
 import Tests.Viewport
 import Tests.Zoom
 import Tests.RetryLogic
+import Tests.TileCache
 import Tests.Utils
 import Crucible
 

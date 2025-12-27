@@ -14,90 +14,87 @@ Worldmap is a functional tile-based map viewer with:
 
 ---
 
-## Priority 1: Code Cleanup
+## Priority 1: Code Cleanup ✅ COMPLETED
 
-### Deduplicate Utility Functions
+### Deduplicate Utility Functions ✅
 
-Several helper functions are duplicated across modules:
+Created `Worldmap/Utils.lean` with shared constants and utility functions:
+- `pi`, `maxMercatorLatitude`, `minZoomLevel`, `maxZoomLevel`
+- `defaultMaxCachedImages`, `defaultDiskCacheSizeBytes`, `defaultTileSize`
+- `intToFloat`, `natToInt`, `intMax`, `intMin`, `floatMax`, `floatMin`
+- `floatClamp`, `intClamp`, `clampLatitude`, `wrapLongitude`, `clampZoom`
 
-| Function | Locations |
-|----------|-----------|
-| `intToFloat`, `natToInt`, `intMax`, `intMin` | `TileCoord.lean` |
-| `floatMax`, `floatMin`, `floatClamp` | `Zoom.lean` |
-| `pi` constant | `TileCoord.lean` |
+### Remove Debug Logging ✅
 
-**Action:** Create `Worldmap/Utils.lean` with shared constants and utility functions.
+- Removed `IO.println` debug output from `MapState.init`
 
-### Remove Debug Logging
+### Named Constants for Magic Numbers ✅
 
-- `MapState.init` contains `IO.println` debug output that should be removed or made conditional
-- Consider adding a `debug` flag to `MapState` or using a logging library
-
-### Named Constants for Magic Numbers
-
-| Current | Suggested Name |
-|---------|----------------|
-| `512` (tile size) | Already named in `MapViewport.tileSize` |
-| `1500` (max cached images) | `defaultMaxCachedImages` |
-| `100 * 1024 * 1024` | `defaultDiskCacheBytes` |
-| `0.15` (lerp factor) | Already named as `zoomLerpFactor` |
-| `0.01` (snap threshold) | Already named as `zoomSnapThreshold` |
-| `85.0` (Mercator latitude limit) | `maxMercatorLatitude` |
+| Constant | Value | Location |
+|----------|-------|----------|
+| `defaultMaxCachedImages` | 1500 | `Utils.lean` |
+| `defaultDiskCacheSizeBytes` | 100 MB | `Utils.lean` |
+| `defaultTileSize` | 512 | `Utils.lean` |
+| `maxMercatorLatitude` | 85.0 | `Utils.lean` |
+| `minZoomLevel` / `maxZoomLevel` | 0 / 19 | `Utils.lean` |
 
 ---
 
-## Priority 2: Testing
+## Priority 2: Testing ✅ COMPLETED
 
-### Add Test Suite
+### Test Suite ✅
 
-The project currently lacks tests. Add tests using Crucible:
+Comprehensive test suite with **129 tests** across 7 suites:
 
-- [ ] **TileCoord tests**
+- [x] **TileCoord tests** (12 tests)
   - `latLonToTile` / `tileToLatLon` round-trip consistency
   - Edge cases: poles, date line, zoom level 0 and 19
   - `parentTile` / `childTiles` relationship
 
-- [ ] **Viewport tests**
+- [x] **TileProvider tests** (18 tests)
+  - URL generation for all preset providers
+  - Subdomain rotation, custom templates
+  - Zoom validation and clamping
+
+- [x] **Viewport tests** (12 tests)
   - `visibleTiles` returns correct tile count
   - `pixelsToDegrees` consistency
   - `tileScreenPos` and `centerTilePos` inverse relationship
 
-- [ ] **Zoom tests**
+- [x] **Zoom tests** (12 tests)
   - `zoomToPoint` keeps anchor point fixed
   - `screenToGeo` / `geoToTile` consistency
   - Latitude clamping and longitude wrapping
 
-- [ ] **RetryLogic tests**
+- [x] **RetryLogic tests** (16 tests)
   - Exponential backoff timing
   - `shouldRetry` respects exhaustion
   - State transitions
 
-- [ ] **TileCache tests**
-  - State transitions (pending → loaded → cached)
+- [x] **TileCache tests** (28 tests)
+  - State transitions (pending → cached → evicted)
   - LRU eviction order
-  - `tilesToUnload` and `staleTiles` logic
+  - `staleTiles` and `cachedImagesToEvict` logic
 
-### Add `lake test` Target
+- [x] **Utils tests** (31 tests)
+  - Type conversions, clamping functions
+  - Named constants verification
+  - EasingType functions, ZoomAnimationConfig presets
+  - MapBounds operations and preset regions
 
-Add to `lakefile.lean`:
-```lean
-lean_exe worldmap_tests where
-  root := `Tests.Main
-  moreLinkArgs := commonLinkArgs
+### Test Infrastructure ✅
 
-@[test_driver]
-lean_exe test where
-  root := `Tests.Main
-  moreLinkArgs := commonLinkArgs
-```
+- `Tests/` directory with modular test files
+- `test.sh` script for building and running tests
+- `lake test` target in `lakefile.lean`
 
 ---
 
-## Priority 3: Configuration & Flexibility
+## Priority 3: Configuration & Flexibility ✅ COMPLETED
 
-### Configurable Tile Provider
+### Configurable Tile Provider ✅
 
-Currently hardcoded to CartoDB Dark @2x tiles. Make this configurable:
+Created `Worldmap/TileProvider.lean` with:
 
 ```lean
 structure TileProvider where
@@ -105,34 +102,53 @@ structure TileProvider where
   urlTemplate : String  -- "{s}.example.com/{z}/{x}/{y}.png"
   subdomains : Array String := #["a", "b", "c", "d"]
   tileSize : Int := 256
-  retinaScale : Int := 2  -- 1 for standard, 2 for @2x
   attribution : String := ""
   maxZoom : Int := 19
+  minZoom : Int := 0
   deriving Repr, Inhabited
 ```
 
-**Preset providers:**
-- CartoDB Dark/Light/Voyager
-- OpenStreetMap standard
-- Stamen Terrain/Toner/Watercolor
-- Custom URL template
+**13 preset providers implemented:**
+- CartoDB: `cartoDarkRetina`, `cartoDark`, `cartoLightRetina`, `cartoLight`, `cartoVoyagerRetina`, `cartoVoyager`
+- OpenStreetMap: `openStreetMap`
+- Stamen/Stadia: `stamenToner`, `stamenTonerLite`, `stamenTerrain`, `stamenWatercolor`, `stadiaSmooth`, `stadiaSmoothDark`
+- Custom: `TileProvider.custom name urlTemplate tileSize maxZoom`
 
-### Configurable Zoom Animation
+**Integration:**
+- `MapState` now includes `tileProvider` field
+- `MapState.setProvider` clears cache and updates settings
+- `MapViewport.tileSize` synced with provider
+- Tile URLs generated via `TileProvider.tileUrl`
+
+### Configurable Zoom Animation ✅
+
+Added to `Worldmap/Utils.lean`:
 
 ```lean
+inductive EasingType where
+  | linear | easeOut | easeInOut
+  deriving Repr, BEq, Inhabited
+
 structure ZoomAnimationConfig where
   lerpFactor : Float := 0.15
   snapThreshold : Float := 0.01
-  easingFunction : EasingType := .linear
+  easing : EasingType := .linear
   deriving Repr, Inhabited
-
-inductive EasingType where
-  | linear | easeOut | easeInOut | custom (f : Float → Float)
 ```
 
-### Bounding Box Constraints
+**Preset configurations:**
+- `defaultZoomAnimationConfig` - Linear, moderate speed
+- `fastZoomAnimationConfig` - EaseOut, faster feel
+- `smoothZoomAnimationConfig` - EaseInOut, gradual
 
-Allow restricting the viewable area:
+**Integration:**
+- `MapState` now includes `zoomAnimationConfig` field
+- `MapState.setZoomAnimationConfig` updates settings
+- `Render.updateZoomAnimation` uses config from state
+
+### Bounding Box Constraints ✅
+
+Added to `Worldmap/Utils.lean`:
 
 ```lean
 structure MapBounds where
@@ -142,7 +158,21 @@ structure MapBounds where
   maxLon : Float := 180.0
   minZoom : Int := 0
   maxZoom : Int := 19
+  deriving Repr, Inhabited
 ```
+
+**Preset regions:**
+- `MapBounds.world` - Full world view
+- `MapBounds.usa` - Continental United States
+- `MapBounds.europe` - European region
+- `MapBounds.sfBayArea` - San Francisco Bay Area
+
+**Integration:**
+- `MapState` now includes `mapBounds` field
+- `MapState.setBounds` clamps position to new bounds
+- `Input.handlePanInput` respects bounds on drag
+- `Input.handleZoomInput` respects bounds on zoom
+- `MapState.init/setCenter/setZoom` all respect bounds
 
 ---
 
@@ -356,11 +386,14 @@ The following are explicitly out of scope:
 
 ## Version Milestones
 
-### v0.2 - Polish
-- [ ] Deduplicate utility functions
-- [ ] Add comprehensive test suite
-- [ ] Remove debug logging
-- [ ] Configurable tile provider
+### v0.2 - Polish ✅ COMPLETED
+- [x] Deduplicate utility functions
+- [x] Add comprehensive test suite (129 tests)
+- [x] Remove debug logging
+- [x] Named constants for magic numbers
+- [x] Configurable tile provider (13 presets)
+- [x] Configurable zoom animation (3 easing types)
+- [x] Bounding box constraints (4 preset regions)
 
 ### v0.3 - Interactivity
 - [ ] Keyboard navigation

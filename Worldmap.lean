@@ -4,6 +4,7 @@
 -/
 import Worldmap.Utils
 import Worldmap.TileCoord
+import Worldmap.TileProvider
 import Worldmap.Viewport
 import Worldmap.Zoom
 import Worldmap.TileCache
