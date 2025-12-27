@@ -2,22 +2,9 @@
   Map Tile Coordinates and Web Mercator Projection
   Extracted from Afferent to Worldmap
 -/
+import Worldmap.Utils
+
 namespace Worldmap
-
-/-- Pi constant -/
-def pi : Float := 3.14159265358979323846
-
-/-- Convert Int to Float -/
-def intToFloat (n : Int) : Float := Float.ofInt n
-
-/-- Convert Nat to Int -/
-def natToInt (n : Nat) : Int := n
-
-/-- Max of two integers -/
-def intMax (a b : Int) : Int := if a > b then a else b
-
-/-- Min of two integers -/
-def intMin (a b : Int) : Int := if a < b then a else b
 
 /-- Tile coordinates (x, y at zoom level z) -/
 structure TileCoord where
@@ -62,9 +49,7 @@ def tileUrl (tile : TileCoord) : String :=
 def tilesAtZoom (zoom : Int) : Int :=
   natToInt (Float.pow 2.0 (intToFloat zoom)).toUInt64.toNat
 
-/-- Clamp zoom level to valid range (0-19). -/
-def clampZoom (z : Int) : Int :=
-  intMin 19 (intMax 0 z)
+-- clampZoom is now in Utils.lean
 
 namespace TileCoord
 

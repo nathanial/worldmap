@@ -32,6 +32,19 @@ def commonLinkArgs : Array String := #[
 lean_lib Worldmap where
   roots := #[`Worldmap]
 
+lean_lib Tests where
+  roots := #[`Tests]
+  globs := #[.submodules `Tests]
+
 lean_exe worldmap where
   root := `Main
+  moreLinkArgs := commonLinkArgs
+
+lean_exe worldmap_tests where
+  root := `Tests.Main
+  moreLinkArgs := commonLinkArgs
+
+@[test_driver]
+lean_exe test where
+  root := `Tests.Main
   moreLinkArgs := commonLinkArgs

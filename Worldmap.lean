@@ -2,6 +2,7 @@
   Worldmap - Tile-based map viewer with Web Mercator projection
   Extracted from Afferent
 -/
+import Worldmap.Utils
 import Worldmap.TileCoord
 import Worldmap.Viewport
 import Worldmap.Zoom

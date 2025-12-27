@@ -16,16 +16,6 @@ namespace Worldmap.Zoom
 
 open Worldmap
 
-/-- Max of two floats -/
-def floatMax (a b : Float) : Float := if a > b then a else b
-
-/-- Min of two floats -/
-def floatMin (a b : Float) : Float := if a < b then a else b
-
-/-- Clamp float to range -/
-def floatClamp (value min max : Float) : Float :=
-  floatMin max (floatMax min value)
-
 /-- Convert screen coordinates to fractional tile position -/
 def screenToTile (vp : MapViewport) (sx sy : Float) : (Float × Float) :=
   let (centerTileX, centerTileY) := vp.centerTilePos
@@ -86,18 +76,9 @@ def zoomToPoint (vp : MapViewport) (cursorX cursorY : Float)
                 (newZoom : Int) : MapViewport :=
   let clampedZoom := clampZoom newZoom
   let (newLat, newLon) := zoomToPointCenter vp cursorX cursorY clampedZoom
-
-  -- Clamp latitude to valid Mercator range
-  let clampedLat := floatClamp newLat (-85.0) 85.0
-
-  -- Wrap longitude to [-180, 180]
-  let wrappedLon := if newLon > 180.0 then newLon - 360.0
-                    else if newLon < -180.0 then newLon + 360.0
-                    else newLon
-
   { vp with
-    centerLat := clampedLat
-    centerLon := wrappedLon
+    centerLat := clampLatitude newLat
+    centerLon := wrapLongitude newLon
     zoom := clampedZoom
   }
 

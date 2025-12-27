@@ -10,7 +10,7 @@ import Afferent.FFI.Window
 namespace Worldmap
 
 open Afferent.FFI
-open Worldmap.Zoom (floatClamp screenToGeo)
+open Worldmap.Zoom (screenToGeo)
 
 /-- Check if left mouse button is down from button mask -/
 def isLeftButtonDown (buttons : UInt8) : Bool :=
@@ -28,12 +28,8 @@ def handlePanInput (window : Window) (state : MapState) : IO MapState := do
       let dx := state.dragStartX - mouseX
       let dy := state.dragStartY - mouseY
       let (dLon, dLat) := state.viewport.pixelsToDegrees dx dy
-      let newLat := floatClamp (state.dragStartLat - dLat) (-85.0) 85.0
-      let newLon := state.dragStartLon + dLon
-      -- Wrap longitude
-      let newLon := if newLon > 180.0 then newLon - 360.0
-                    else if newLon < -180.0 then newLon + 360.0
-                    else newLon
+      let newLat := clampLatitude (state.dragStartLat - dLat)
+      let newLon := wrapLongitude (state.dragStartLon + dLon)
       pure { state with
         viewport := { state.viewport with centerLat := newLat, centerLon := newLon }
       }

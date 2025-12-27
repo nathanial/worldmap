@@ -19,7 +19,7 @@ open Worldmap (selectEvictions addEntry removeEntries touchEntry)
 open Worldmap (TileDiskCacheConfig TileDiskCacheIndex TileDiskCacheEntry tilePath)
 open Afferent.FFI (Texture Renderer)
 open Worldmap.RetryLogic
-open Worldmap.Zoom (floatClamp centerForAnchor)
+open Worldmap.Zoom (centerForAnchor)
 
 /-- HTTP GET request returning binary data using Wisp -/
 def httpGetBinary (url : String) : IO (Except String ByteArray) := do
@@ -53,16 +53,12 @@ def updateZoomAnimation (state : MapState) : MapState :=
           state.zoomAnchorScreenX state.zoomAnchorScreenY
           state.viewport.screenWidth state.viewport.screenHeight
           state.viewport.tileSize target
-      let clampedLat := floatClamp newLat (-85.0) 85.0
-      let wrappedLon := if newLon > 180.0 then newLon - 360.0
-                        else if newLon < -180.0 then newLon + 360.0
-                        else newLon
       { state with
           displayZoom := target
           isAnimatingZoom := false
           viewport := { state.viewport with
-            centerLat := clampedLat
-            centerLon := wrappedLon
+            centerLat := clampLatitude newLat
+            centerLon := wrapLongitude newLon
             zoom := state.targetZoom
           }
       }
@@ -75,17 +71,13 @@ def updateZoomAnimation (state : MapState) : MapState :=
           state.zoomAnchorScreenX state.zoomAnchorScreenY
           state.viewport.screenWidth state.viewport.screenHeight
           state.viewport.tileSize newDisplayZoom
-      let clampedLat := floatClamp newLat (-85.0) 85.0
-      let wrappedLon := if newLon > 180.0 then newLon - 360.0
-                        else if newLon < -180.0 then newLon + 360.0
-                        else newLon
       -- Update viewport.zoom to floor of displayZoom for tile fetching
       let tileZoom := clampZoom (natToInt newDisplayZoom.floor.toUInt64.toNat)
       { state with
           displayZoom := newDisplayZoom
           viewport := { state.viewport with
-            centerLat := clampedLat
-            centerLon := wrappedLon
+            centerLat := clampLatitude newLat
+            centerLon := wrapLongitude newLon
             zoom := tileZoom
           }
       }

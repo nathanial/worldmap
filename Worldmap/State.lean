@@ -11,7 +11,6 @@ import Std.Data.HashMap
 namespace Worldmap
 
 open Worldmap (TileDiskCacheConfig TileDiskCacheIndex)
-open Worldmap.Zoom (floatClamp)
 
 /-- Complete map state -/
 structure MapState where
@@ -47,7 +46,6 @@ def init (lat lon : Float) (zoom : Int) (width height : Int)
   let diskIndex ← IO.mkRef (TileDiskCacheIndex.empty diskConfig)
   let activeTasks ← IO.mkRef {}
   let clampedZoom := clampZoom zoom
-  IO.println s!"[MapState.init] zoom={zoom} clampedZoom={clampedZoom} width={width} height={height}"
   pure {
     viewport := {
       centerLat := lat
@@ -67,13 +65,9 @@ def init (lat lon : Float) (zoom : Int) (width height : Int)
 
 /-- Update viewport center -/
 def setCenter (state : MapState) (lat lon : Float) : MapState :=
-  let clampedLat := floatClamp lat (-85.0) 85.0
-  let wrappedLon := if lon > 180.0 then lon - 360.0
-                    else if lon < -180.0 then lon + 360.0
-                    else lon
   { state with viewport := { state.viewport with
-      centerLat := clampedLat
-      centerLon := wrappedLon
+      centerLat := clampLatitude lat
+      centerLon := wrapLongitude lon
     }
   }
 
