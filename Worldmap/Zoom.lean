@@ -39,6 +39,31 @@ def screenToGeo (vp : MapViewport) (sx sy : Float) : (Float × Float) :=
   let (tileX, tileY) := screenToTile vp sx sy
   tileToGeo tileX tileY vp.zoom
 
+/-- Convert geographic coordinates to fractional tile position (Mercator projection).
+    Returns (tileX, tileY). -/
+def geoToTile (lat lon : Float) (zoom : Int) : (Float × Float) :=
+  let n := Float.pow 2.0 (intToFloat zoom)
+  let tileX := (lon + 180.0) / 360.0 * n
+  let latRad := lat * pi / 180.0
+  let tileY := (1.0 - Float.log (Float.tan latRad + 1.0 / Float.cos latRad) / pi) / 2.0 * n
+  (tileX, tileY)
+
+/-- Convert fractional tile position to screen coordinates.
+    Returns (screenX, screenY). -/
+def tileToScreen (vp : MapViewport) (tileX tileY : Float) : (Float × Float) :=
+  let (centerTileX, centerTileY) := vp.centerTilePos
+  let cx := (intToFloat vp.screenWidth) / 2.0
+  let cy := (intToFloat vp.screenHeight) / 2.0
+  let sx := cx + (tileX - centerTileX) * (intToFloat vp.tileSize)
+  let sy := cy + (tileY - centerTileY) * (intToFloat vp.tileSize)
+  (sx, sy)
+
+/-- Convert geographic coordinates to screen coordinates.
+    Returns (screenX, screenY). -/
+def geoToScreen (vp : MapViewport) (lat lon : Float) : (Float × Float) :=
+  let (tileX, tileY) := geoToTile lat lon vp.zoom
+  tileToScreen vp tileX tileY
+
 /-- Compute new center after zooming at cursor position.
     Returns (newLat, newLon).
 

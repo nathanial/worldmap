@@ -9,6 +9,7 @@ import Worldmap.RetryLogic
 import Worldmap.Zoom
 import Worldmap.TileDiskCache
 import Worldmap.TileProvider
+import Worldmap.Prefetch
 import Wisp
 import Afferent.FFI.Texture
 import Afferent.FFI.Renderer
@@ -334,6 +335,14 @@ def cancelStaleTasks (state : MapState) : IO Unit := do
       -- Drop bookkeeping immediately; task will observe cancelFlag and skip queueing.
       state.activeTasks.modify fun m => m.erase coord
 
+/-- Check if we should fetch new tiles (respects zoom debouncing) -/
+def shouldFetchNewTiles (state : MapState) : Bool :=
+  -- Skip fetching if zoom is animating and recently changed (debounce)
+  if state.isAnimatingZoom then
+    state.frameCount - state.lastZoomChangeFrame >= state.zoomDebounceFrames
+  else
+    true
+
 /-- Update cache: spawn fetches for missing tiles and schedule retries (non-blocking) -/
 def updateTileCache (state : MapState) : IO MapState := do
   -- Compute keepSet based on actual tile state
@@ -355,39 +364,50 @@ def updateTileCache (state : MapState) : IO MapState := do
   -- Schedule retries for failed tiles
   let state ← scheduleRetries state
 
-  -- Get visible tiles sorted by distance from center (prioritize center tiles)
-  let visible := state.viewport.visibleTiles
-  let (centerX, centerY) := state.viewport.centerTilePos
-  let sortedVisible := visible.toArray.qsort (fun a b =>
-    let dxA := intToFloat a.x - centerX
-    let dyA := intToFloat a.y - centerY
-    let dxB := intToFloat b.x - centerX
-    let dyB := intToFloat b.y - centerY
-    let distA := dxA * dxA + dyA * dyA
-    let distB := dxB * dxB + dyB * dyB
-    distA < distB
-  )
-
   let mut cache := state.cache
 
-  -- Fetch parent tiles FIRST (highest priority - ensures fallback is always available)
-  if state.viewport.zoom > 0 then
-    let parentSet : Std.HashSet TileCoord := visible.foldl
-      (fun s t => s.insert t.parentTile) {}
-    for parentCoord in parentSet.toList do
-      unless cache.contains parentCoord do
-        cache := cache.insert parentCoord .pending
-        let cancelFlag ← IO.mkRef false
-        state.activeTasks.modify fun m => m.insert parentCoord cancelFlag
-        spawnFetchTask parentCoord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
+  -- Only fetch new tiles if zoom has stabilized (debouncing)
+  if shouldFetchNewTiles state then
+    -- Get visible tiles sorted by distance from center (prioritize center tiles)
+    let visible := state.viewport.visibleTiles
+    let (centerX, centerY) := state.viewport.centerTilePos
+    let sortedVisible := visible.toArray.qsort (fun a b =>
+      let dxA := intToFloat a.x - centerX
+      let dyA := intToFloat a.y - centerY
+      let dxB := intToFloat b.x - centerX
+      let dyB := intToFloat b.y - centerY
+      let distA := dxA * dxA + dyA * dyA
+      let distB := dxB * dxB + dyB * dyB
+      distA < distB
+    )
 
-  -- Then fetch visible tiles (sorted by distance from center)
-  for coord in sortedVisible do
-    unless cache.contains coord do
-      cache := cache.insert coord .pending
-      let cancelFlag ← IO.mkRef false
-      state.activeTasks.modify fun m => m.insert coord cancelFlag
-      spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
+    -- Fetch parent tiles FIRST (highest priority - ensures fallback is always available)
+    if state.viewport.zoom > 0 then
+      let parentSet : Std.HashSet TileCoord := visible.foldl
+        (fun s t => s.insert t.parentTile) {}
+      for parentCoord in parentSet.toList do
+        unless cache.contains parentCoord do
+          cache := cache.insert parentCoord .pending
+          let cancelFlag ← IO.mkRef false
+          state.activeTasks.modify fun m => m.insert parentCoord cancelFlag
+          spawnFetchTask parentCoord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
+
+    -- Then fetch visible tiles (sorted by distance from center)
+    for coord in sortedVisible do
+      unless cache.contains coord do
+        cache := cache.insert coord .pending
+        let cancelFlag ← IO.mkRef false
+        state.activeTasks.modify fun m => m.insert coord cancelFlag
+        spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
+
+    -- Predictive prefetching: fetch tiles ahead of pan direction
+    let prefetchTiles := tilesForPrefetch { state with cache := cache }
+    for coord in prefetchTiles do
+      unless cache.contains coord do
+        cache := cache.insert coord .pending
+        let cancelFlag ← IO.mkRef false
+        state.activeTasks.modify fun m => m.insert coord cancelFlag
+        spawnFetchTask coord state.resultQueue state.diskCacheConfig state.diskCacheIndex cancelFlag state.tileProvider
 
   -- Increment frame counter (abstract time advances)
   pure { state with cache := cache, frameCount := state.frameCount + 1 }

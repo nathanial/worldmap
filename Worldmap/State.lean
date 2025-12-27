@@ -33,6 +33,15 @@ structure MapState where
   zoomAnchorLat : Float := 0.0               -- Geographic point to keep fixed
   zoomAnchorLon : Float := 0.0
   isAnimatingZoom : Bool := false            -- Whether animation is in progress
+  -- Initial view for Home key reset
+  initialLat : Float
+  initialLon : Float
+  initialZoom : Int
+  -- Cursor position (geographic coordinates under mouse)
+  cursorLat : Float := 0.0
+  cursorLon : Float := 0.0
+  cursorScreenX : Float := 0.0
+  cursorScreenY : Float := 0.0
   -- Tile provider configuration
   tileProvider : TileProvider := TileProvider.default
   -- Zoom animation configuration
@@ -44,6 +53,14 @@ structure MapState where
   diskCacheIndex : IO.Ref TileDiskCacheIndex
   -- Active task cancellation flags
   activeTasks : IO.Ref (Std.HashMap TileCoord (IO.Ref Bool))
+  -- Velocity tracking for predictive prefetching
+  panVelocityX : Float := 0.0     -- smoothed pixels/frame
+  panVelocityY : Float := 0.0
+  lastMouseX : Float := 0.0       -- for delta calculation
+  lastMouseY : Float := 0.0
+  -- Zoom debouncing for request coalescing
+  lastZoomChangeFrame : Nat := 0  -- frame when zoom target changed
+  zoomDebounceFrames : Nat := 6   -- wait ~100ms at 60fps before fetching
 
 namespace MapState
 
@@ -74,6 +91,9 @@ def init (lat lon : Float) (zoom : Int) (width height : Int)
     resultQueue := queue
     targetZoom := clampedZoom
     displayZoom := intToFloat clampedZoom
+    initialLat := clampedLat
+    initialLon := clampedLon
+    initialZoom := clampedZoom
     tileProvider := provider
     zoomAnimationConfig := zoomConfig
     mapBounds := bounds
@@ -149,6 +169,19 @@ def startDrag (state : MapState) (mouseX mouseY : Float) : MapState :=
 /-- Stop dragging -/
 def stopDrag (state : MapState) : MapState :=
   { state with isDragging := false }
+
+/-- Reset to initial view (for Home key) -/
+def resetToInitial (state : MapState) : MapState :=
+  { state with
+    viewport := { state.viewport with
+      centerLat := state.initialLat
+      centerLon := state.initialLon
+      zoom := state.initialZoom
+    }
+    targetZoom := state.initialZoom
+    displayZoom := intToFloat state.initialZoom
+    isAnimatingZoom := false
+  }
 
 end MapState
 

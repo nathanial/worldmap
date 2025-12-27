@@ -44,7 +44,7 @@ Created `Worldmap/Utils.lean` with shared constants and utility functions:
 
 ### Test Suite ✅
 
-Comprehensive test suite with **129 tests** across 7 suites:
+Comprehensive test suite with **199 tests** across 12 suites:
 
 - [x] **TileCoord tests** (12 tests)
   - `latLonToTile` / `tileToLatLon` round-trip consistency
@@ -81,6 +81,26 @@ Comprehensive test suite with **129 tests** across 7 suites:
   - Named constants verification
   - EasingType functions, ZoomAnimationConfig presets
   - MapBounds operations and preset regions
+
+- [x] **KeyCode tests** (8 tests)
+  - Arrow key codes, number key codes
+  - `toZoomLevel` mapping
+
+- [x] **Overlay tests** (15 tests)
+  - Coordinate formatting, scale bar
+  - `metersPerPixel`, tile status
+
+- [x] **Marker tests** (24 tests)
+  - MarkerColor, Marker, MarkerLayer
+  - Viewport culling, hit testing
+
+- [x] **Prefetch tests** (15 tests)
+  - PrefetchConfig, velocity magnitude
+  - `tilesForPrefetch`, `predictedCenter`
+
+- [x] **RequestCoalescing tests** (8 tests)
+  - `shouldFetchNewTiles` debounce logic
+  - Zoom animation debouncing
 
 ### Test Infrastructure ✅
 
@@ -176,94 +196,153 @@ structure MapBounds where
 
 ---
 
-## Priority 4: New Features
+## Priority 4: New Features ✅ COMPLETED
 
-### Keyboard Navigation
+### Keyboard Navigation ✅
 
-Add keyboard controls in `Input.lean`:
+Created `Worldmap/KeyCode.lean` with macOS virtual key codes and updated `Input.lean`:
 
 | Key | Action |
 |-----|--------|
-| Arrow keys | Pan map |
+| Arrow keys | Pan map (100px per press) |
 | `+` / `=` | Zoom in (centered) |
 | `-` | Zoom out (centered) |
 | `Home` | Reset to initial view |
-| `0`-`9` | Jump to zoom level |
+| `0`-`9` | Jump to zoom level (0→10, 1-9→1-9) |
 
-### Coordinate Display
+**Integration:**
+- `handleKeyboardInput` in `Input.lean`
+- `MapState.initialLat/Lon/Zoom` for Home key reset
+- `MapState.resetToInitial` method
 
-Show lat/lon at cursor position:
-- Add `cursorLat`, `cursorLon` fields to `MapState`
-- Update in `handleInput`
-- Display in overlay (Main.lean)
+### Coordinate Display ✅
 
-### Scale Bar
-
-Display a scale indicator showing real-world distance:
-- Calculate meters-per-pixel at current zoom/latitude
-- Draw a bar with distance label (e.g., "500 m", "1 km")
-
-### Tile Loading Indicator
-
-Show loading progress:
-- Count of pending vs loaded tiles
-- Optional loading spinner or progress bar
-- Event callback when all visible tiles loaded
-
-### Marker/Point Layer
+Created `Worldmap/Overlay.lean` with coordinate formatting:
 
 ```lean
+def formatLatitude (lat : Float) : String   -- e.g., "37.77490° N"
+def formatLongitude (lon : Float) : String  -- e.g., "122.41940° W"
+def formatCoordinates (lat lon : Float) : String
+def getCursorCoordinates (state : MapState) : String
+def getCenterCoordinates (state : MapState) : String
+```
+
+**Integration:**
+- `cursorLat`, `cursorLon`, `cursorScreenX`, `cursorScreenY` in `MapState`
+- `updateCursorPosition` called in `handleInput`
+
+### Scale Bar ✅
+
+Functions in `Worldmap/Overlay.lean`:
+
+```lean
+def metersPerPixel (lat : Float) (zoom : Int) : Float
+def findBestScaleDistance (metersPerPx : Float) (maxPixels : Float) : Float × Float
+def formatDistance (meters : Float) : String  -- e.g., "500 m", "2 km"
+def getScaleBarInfo (state : MapState) : String × Float  -- (label, pixelWidth)
+```
+
+### Tile Loading Indicator ✅
+
+Functions in `Worldmap/Overlay.lean`:
+
+```lean
+def getTileStatus (state : MapState) : Nat × Nat × Nat  -- (loaded, pending, failed)
+def formatTileStatus (state : MapState) : String  -- e.g., "Loading: 5 tiles" or "Tiles: 42"
+```
+
+### Marker/Point Layer ✅
+
+Created `Worldmap/Marker.lean` with full marker system:
+
+```lean
+structure MarkerColor where
+  r : Float; g : Float; b : Float; a : Float
+
 structure Marker where
+  id : MarkerId
   lat : Float
   lon : Float
-  label : Option String := none
-  color : Color := Color.red
-  size : Float := 10.0
+  label : Option String
+  color : MarkerColor
+  size : Float
 
 structure MarkerLayer where
   markers : Array Marker
-  visible : Bool := true
+  visible : Bool
+  nextId : MarkerId
 ```
 
-Functions:
-- `addMarker`, `removeMarker`, `clearMarkers`
-- `markersInView` for culling
-- `hitTestMarker` for click handling
+**Functions:**
+- `addMarker`, `removeMarker`, `clearMarkers`, `getMarker`, `updateMarker`
+- `setLabel`, `setColor`, `setSize`, `moveMarker`
+- `markersInView` for viewport culling
+- `hitTest`, `hitTestAll` for click handling
+- `markerScreenPos` using new `Zoom.geoToScreen`
+
+**Preset colors:** `red`, `green`, `blue`, `yellow`, `orange`, `purple`, `white`, `black`
 
 ---
 
-## Priority 5: Performance Optimizations
+## Priority 5: Performance Optimizations (Partial)
 
-### Predictive Tile Prefetching
+### Predictive Tile Prefetching ✅
 
-During pan, predict movement direction and prefetch tiles ahead:
+Created `Worldmap/Prefetch.lean` with velocity-based tile prefetching:
 
 ```lean
-structure PanVelocity where
-  dx : Float  -- pixels per frame
-  dy : Float
+structure PrefetchConfig where
+  lookAheadMs : Float := 500.0      -- predict 0.5 seconds ahead
+  minVelocity : Float := 5.0        -- minimum velocity to trigger
+  maxPrefetchTiles : Nat := 8       -- limit prefetch per frame
 
-def prefetchAhead (state : MapState) (velocity : PanVelocity) : List TileCoord :=
-  -- Predict position 0.5 seconds ahead
-  -- Return tiles visible at predicted position that aren't cached
+def tilesForPrefetch (state : MapState) (config : PrefetchConfig) : Array TileCoord
 ```
 
-### Connection Pooling
+**Features:**
+- Velocity tracking in `MapState` (`panVelocityX`, `panVelocityY`)
+- Exponential smoothing of velocity in `Input.handlePanInput`
+- Velocity decay when not dragging
+- Predicts future viewport position and prefetches tiles ahead
 
-The current HTTP implementation creates new connections per request. Add connection pooling to Wisp or use keep-alive connections.
+**Preset configurations:** `defaultPrefetchConfig`, `fastPrefetchConfig`, `conservativePrefetchConfig`
 
-### Texture Atlas
+### Request Coalescing ✅
 
-Batch multiple tiles into a single texture atlas for fewer draw calls:
-- Pack recently loaded tiles into atlas
-- Track atlas position per tile
-- Fall back to individual textures when atlas is full
+Zoom debouncing to avoid fetching intermediate zoom levels during rapid scrolling:
 
-### Request Coalescing
+```lean
+-- Added to MapState:
+lastZoomChangeFrame : Nat := 0     -- frame when zoom target changed
+zoomDebounceFrames : Nat := 6      -- wait ~100ms at 60fps before fetching
 
-If multiple zoom levels are requested quickly, cancel intermediate requests:
-- Track target zoom vs current fetching zoom
-- Cancel in-flight requests for zoom levels between
+def shouldFetchNewTiles (state : MapState) : Bool
+```
+
+**Integration:**
+- `handleZoomInput` records `lastZoomChangeFrame` on zoom changes
+- `updateTileCache` checks `shouldFetchNewTiles` before spawning fetch tasks
+- Prevents wasted network requests during rapid zoom animations
+
+### Connection Pooling ✅
+
+Configured libcurl's multi-handle for better connection reuse in `wisp/native/src/wisp_ffi.c`:
+
+```c
+// In wisp_multi_init:
+curl_multi_setopt(handle, CURLMOPT_MAXCONNECTS, 16L);    // Increase connection cache
+curl_multi_setopt(handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);  // HTTP/2 multiplexing
+```
+
+### Texture Atlas (Deferred)
+
+**Reason:** High complexity (Metal shader changes, atlas allocation, defragmentation) for low benefit (Metal already handles many draw calls efficiently; tiles are uniform 512x512).
+
+If needed later:
+- Create 4096x4096 atlas texture (64 tile slots)
+- Track slot allocation with simple free list
+- Modify `drawTexturedRect` to accept UV coordinates within atlas
+- Handle slot eviction when atlas is full
 
 ---
 
@@ -395,21 +474,22 @@ The following are explicitly out of scope:
 - [x] Configurable zoom animation (3 easing types)
 - [x] Bounding box constraints (4 preset regions)
 
-### v0.3 - Interactivity
-- [ ] Keyboard navigation
-- [ ] Coordinate display at cursor
-- [ ] Scale bar
-- [ ] Tile loading indicator
+### v0.3 - Interactivity ✅ COMPLETED
+- [x] Keyboard navigation
+- [x] Coordinate display at cursor
+- [x] Scale bar
+- [x] Tile loading indicator
 
-### v0.4 - Layers
-- [ ] Marker layer
+### v0.4 - Layers (Partial)
+- [x] Marker layer
 - [ ] Basic GeoJSON support
 - [ ] Mini-map
 
-### v0.5 - Performance
-- [ ] Predictive prefetching
-- [ ] Connection pooling
-- [ ] Request coalescing
+### v0.5 - Performance ✅ COMPLETED
+- [x] Predictive prefetching
+- [x] Connection pooling
+- [x] Request coalescing
+- [ ] Texture atlas (deferred - low priority)
 
 ### v1.0 - Production Ready
 - [ ] Full test coverage

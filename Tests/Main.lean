@@ -9,6 +9,11 @@ import Tests.Zoom
 import Tests.RetryLogic
 import Tests.TileCache
 import Tests.Utils
+import Tests.KeyCode
+import Tests.Overlay
+import Tests.Marker
+import Tests.Prefetch
+import Tests.RequestCoalescing
 import Crucible
 
 open Crucible
