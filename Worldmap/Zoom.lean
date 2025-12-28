@@ -115,6 +115,23 @@ def geoToTileFrac (lat lon : Float) (zoom : Float) : (Float × Float) :=
   let tileY := (1.0 - Float.log (Float.tan latRad + 1.0 / Float.cos latRad) / pi) / 2.0 * n
   (tileX, tileY)
 
+/-- Convert geographic coordinates to screen coordinates with fractional zoom.
+    Returns (screenX, screenY). -/
+def geoToScreenFrac (vp : MapViewport) (lat lon : Float) (displayZoom : Float) : (Float × Float) :=
+  -- Convert lat/lon to tile position at fractional zoom
+  let (tileX, tileY) := geoToTileFrac lat lon displayZoom
+  -- Compute center tile position at fractional zoom
+  let n := Float.pow 2.0 displayZoom
+  let centerTileX := (vp.centerLon + 180.0) / 360.0 * n
+  let latRad := vp.centerLat * pi / 180.0
+  let centerTileY := (1.0 - Float.log (Float.tan latRad + 1.0 / Float.cos latRad) / pi) / 2.0 * n
+  -- Convert to screen coordinates
+  let cx := (intToFloat vp.screenWidth) / 2.0
+  let cy := (intToFloat vp.screenHeight) / 2.0
+  let sx := cx + (tileX - centerTileX) * (intToFloat vp.tileSize)
+  let sy := cy + (tileY - centerTileY) * (intToFloat vp.tileSize)
+  (sx, sy)
+
 /-- Convert fractional tile position to lat/lon at fractional zoom level -/
 def tileToGeoFrac (tileX tileY : Float) (zoom : Float) : (Float × Float) :=
   let n := Float.pow 2.0 zoom

@@ -177,6 +177,10 @@ def markersInView (layer : MarkerLayer) (viewport : MapViewport) : Array Marker 
 def markerScreenPos (marker : Marker) (viewport : MapViewport) : Float × Float :=
   Zoom.geoToScreen viewport marker.lat marker.lon
 
+/-- Convert marker geographic position to screen position with fractional zoom -/
+def markerScreenPosFrac (marker : Marker) (viewport : MapViewport) (displayZoom : Float) : Float × Float :=
+  Zoom.geoToScreenFrac viewport marker.lat marker.lon displayZoom
+
 /-- Check if a screen point hits a marker -/
 def hitTestMarker (marker : Marker) (viewport : MapViewport)
     (screenX screenY : Float) : Bool :=

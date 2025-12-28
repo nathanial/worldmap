@@ -153,7 +153,7 @@ def main : IO Unit := do
       c ← CanvasM.run' (c.resetTransform) do
         let visibleMarkers := state.markerLayer.markersInView state.mapState.viewport
         for marker in visibleMarkers do
-          let (sx, sy) := MarkerLayer.markerScreenPos marker state.mapState.viewport
+          let (sx, sy) := MarkerLayer.markerScreenPosFrac marker state.mapState.viewport state.mapState.displayZoom
           -- Draw marker circle
           let color := Color.rgba marker.color.r marker.color.g marker.color.b marker.color.a
           CanvasM.setFillColor color
