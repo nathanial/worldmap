@@ -156,6 +156,14 @@ def setZoom (state : MapState) (zoom : Int) : MapState :=
       isAnimatingZoom := false
   }
 
+/-- Update viewport screen dimensions (for window resize) -/
+def updateScreenSize (state : MapState) (width height : Nat) : MapState :=
+  { state with viewport := { state.viewport with
+      screenWidth := width
+      screenHeight := height
+    }
+  }
+
 /-- Start dragging -/
 def startDrag (state : MapState) (mouseX mouseY : Float) : MapState :=
   { state with

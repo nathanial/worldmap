@@ -53,8 +53,12 @@ def MapDemoState.cleanup (state : MapDemoState) : IO Unit := do
 
 /-- Update map demo state for one frame -/
 def MapDemoState.update (state : MapDemoState) (window : Window) : IO MapDemoState := do
+  -- Get current window size and update viewport (supports window resize)
+  let (w, h) ← Window.getSize window
+  let mapState := state.mapState.updateScreenSize w.toNat h.toNat
+
   -- Handle input (pan and zoom)
-  let mapState ← handleInput window state.mapState
+  let mapState ← handleInput window mapState
 
   -- Update zoom animation
   let mapState := updateZoomAnimation mapState
