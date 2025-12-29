@@ -7,11 +7,10 @@ package worldmap where
     ⟨`relaxedAutoImplicit, false⟩
   ]
 
--- Local workspace dependencies
-require afferent from ".." / "afferent"
-require wisp from ".." / "wisp"
-require cellar from ".." / "cellar"
-require crucible from ".." / "crucible"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.1"
+require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.1"
+require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.1"
+require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
 
 -- Link arguments for Metal/macOS (inherited pattern from afferent)
 def commonLinkArgs : Array String := #[
