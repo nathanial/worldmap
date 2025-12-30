@@ -1,3 +1,5 @@
 /.lake/
 /lake-manifest.json
 /tile_cache/
+.lake
+lake-manifest.json
