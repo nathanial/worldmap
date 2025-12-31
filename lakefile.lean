@@ -7,7 +7,7 @@ package worldmap where
     ⟨`relaxedAutoImplicit, false⟩
   ]
 
-require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.1"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.2"
 require wisp from git "https://github.com/nathanial/wisp" @ "v0.0.1"
 require cellar from git "https://github.com/nathanial/cellar" @ "v0.0.1"
 require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
