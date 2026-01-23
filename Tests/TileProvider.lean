@@ -134,6 +134,6 @@ test "all providers have attribution" := do
   shouldSatisfy (openStreetMap.attribution.length > 0) "OSM has attribution"
   shouldSatisfy (stamenToner.attribution.length > 0) "Stamen has attribution"
 
-#generate_tests
+
 
 end WorldmapTests.TileProviderTests

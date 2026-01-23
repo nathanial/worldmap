@@ -68,6 +68,6 @@ test "plus and minus keys for zoom" := do
   shouldBe equal 24   -- + key (with shift)
   shouldBe minus 27   -- - key
 
-#generate_tests
+
 
 end WorldmapTests.KeyCodeTests

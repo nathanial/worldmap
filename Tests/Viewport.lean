@@ -98,6 +98,6 @@ test "visibleTilesWithFallbacks includes parent tiles" := do
     withFallbacks.contains t.parentTile
   shouldBe hasParent true
 
-#generate_tests
+
 
 end WorldmapTests.ViewportTests

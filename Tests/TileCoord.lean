@@ -118,6 +118,6 @@ test "date line handling" := do
   shouldBe east.x 3
   shouldBe west.x 0
 
-#generate_tests
+
 
 end WorldmapTests.TileCoordTests

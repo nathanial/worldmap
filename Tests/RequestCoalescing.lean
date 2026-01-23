@@ -199,6 +199,6 @@ test "default lastZoomChangeFrame is 0" := do
   }
   shouldBe state.lastZoomChangeFrame 0
 
-#generate_tests
+
 
 end WorldmapTests.RequestCoalescingTests

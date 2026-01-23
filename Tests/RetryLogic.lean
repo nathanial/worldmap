@@ -108,6 +108,6 @@ test "retry exhaustion with different max retries" := do
   shouldBe (rs1.isExhausted config5) false
   shouldBe (rs3.isExhausted config5) false
 
-#generate_tests
+
 
 end WorldmapTests.RetryLogicTests

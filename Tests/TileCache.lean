@@ -264,6 +264,6 @@ test "defaultUnloadConfig has expected values" := do
   shouldBe defaultUnloadConfig.bufferTiles 3
   shouldBe defaultUnloadConfig.maxCachedImages defaultMaxCachedImages
 
-#generate_tests
+
 
 end WorldmapTests.TileCacheTests

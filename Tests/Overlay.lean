@@ -106,6 +106,6 @@ test "formatTileStatus contains 'Tiles' when loaded" := do
   shouldSatisfy (containsSubstr tileStr "Tiles") "contains Tiles"
   shouldSatisfy (containsSubstr tileStr "42") "contains count"
 
-#generate_tests
+
 
 end WorldmapTests.OverlayTests

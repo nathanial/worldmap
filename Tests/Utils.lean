@@ -193,6 +193,6 @@ test "preset bounds have reasonable values" := do
   shouldSatisfy (MapBounds.sfBayArea.minLat > 36.0) "SF south"
   shouldSatisfy (MapBounds.sfBayArea.maxLat < 39.0) "SF north"
 
-#generate_tests
+
 
 end WorldmapTests.UtilsTests

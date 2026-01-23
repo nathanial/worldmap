@@ -266,6 +266,6 @@ test "predictedCenter moves in velocity direction" := do
   -- When panning right, the center should move west (longitude decreases)
   shouldSatisfy (lon < -122.4194) "center should move west when panning right"
 
-#generate_tests
+
 
 end WorldmapTests.PrefetchTests

@@ -212,6 +212,6 @@ test "hitTestAll returns all overlapping markers" := do
   shouldSatisfy (results.contains id1) "contains first marker"
   shouldSatisfy (results.contains id2) "contains second marker"
 
-#generate_tests
+
 
 end WorldmapTests.MarkerTests

@@ -104,6 +104,6 @@ test "tileToGeo returns valid coordinates" := do
   shouldSatisfy (lat >= -90.0 && lat <= 90.0) "lat in range"
   shouldSatisfy (lon >= -180.0 && lon <= 180.0) "lon in range"
 
-#generate_tests
+
 
 end WorldmapTests.ZoomTests
